@@ -193,7 +193,54 @@
         </a>
     </div>
 
-    <div id="model-container"></div>
+    <div id="model-container"></div>   <script>
+        // Add click handler for social buttons
+        document.querySelectorAll('.social-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.open(btn.parentElement.href, '_blank');
+            });
+        });
+    </script>
+ 
+        <video id="cameraFeed"></video>
+        <div id="model-container"></div>
+    <script>async function startCamera() {
+        try {
+            const video = document.getElementById('cameraFeed');
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" } // Use rear camera
+            });
+            video.srcObject = stream;
+            video.play();
+            video.style.display = 'block'; // Show camera feed
+            document.querySelector('.ar-container').style.display = 'block'; // Show AR content
+        } catch (error) {
+            console.error('Camera access error:', error);
+            showError('Camera access denied. Please allow camera permissions.');
+            document.body.style.background = "linear-gradient(45deg, #2196F3, #E91E63)";
+        }
+    }
+
+    // Debugging: Log initialization
+    console.log("Initializing AR Business Card...");
+
+    // Access camera feed
+    async function startCamera() {
+        try {
+            const video = document.getElementById('cameraFeed');
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" } // Use rear camera
+            });
+            video.srcObject = stream;
+            video.play();
+            video.style.display = 'block'; // Show camera feed
+            document.querySelector('.ar-container').style.display = 'block'; // Show AR content
+        } catch (error) {
+            console.error('Camera access error:', error);
+            showError('Camera access denied. Please allow camera permissions.');
+            document.body.style.background = "linear-gradient(45deg, #2196F3, #E91E63)";
+        }
 
     <!-- Add this to your existing script section -->
     <script>
