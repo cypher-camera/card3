@@ -1,130 +1,98 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interactive 3D Model</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Camera Background</title>
-    <style>
-        /* Make the body and video cover the entire viewport */
-        body, html {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        /* Style for the video */
-        #camera-video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: -1; /* Put video behind other content */
-        }
-
-        /* Content in front of the video */
-        .content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        
-            font-size: 30px;
-        }
-    </style>
-    <style>
-        body { 
-            margin: 0;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-         
-        }
-        #model-container {
-            width: 800px;
-            height: 600px;
-            cursor: grab;
-        }
-        #model-container:active {
-            cursor: grabbing;
-        }
-        #cameraFeed {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: none; /* Hide until camera is active */
-        }
-    </style>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Add Font Awesome for social icons -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR Business Card</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Existing styles remain same */
-        body, html {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
+        /* Unified Styles */
+        * {
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        #camera-video {
-            position: absolute;
-            top: 0;
-            left: 0;
+        body, html {
+            margin: 0;
+            padding: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            z-index: -1;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
         }
 
-        /* Profile image styling */
-        .profile-container {
-            position: absolute;
-            top: 200px;
-            right: 200px;
-            z-index: 1000;
+        /* Camera Background */
+        #camera-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: 0;
+            transform: scaleX(-1); /* Mirror flip for better AR feel */
+        }
+
+        /* 3D Model Container */
+        #model-container {
+            position: fixed;
+            width: 100vw;
+            height: 60vh;
+            bottom: 0;
+            left: 0;
+            z-index: 2;
+            touch-action: pan-y;
+        }
+
+        /* Profile Section */
+        .profile-card {
+            position: fixed;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+            text-align: center;
+            background: rgba(255,255,255,0.9);
+            padding: 1rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            max-width: 90%;
         }
 
         .profile-image {
-            width: 200px;
-            height: 200px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
-            border: 3px solid #fff;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            margin-bottom: 0.5rem;
+            border: 2px solid #fff;
         }
 
-        /* Social buttons styling */
+        /* Social Buttons */
         .social-container {
-            position: absolute;
-            bottom: 30px;
+            position: fixed;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 20px;
-            z-index: 1000;
+            gap: 15px;
+            z-index: 4;
         }
 
         .social-btn {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.9);
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.95);
             display: flex;
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
         }
 
         .social-btn:hover {
-            transform: translateY(-3px);
-            background: #fff;
+            transform: scale(1.1);
         }
 
         .social-btn i {
@@ -132,252 +100,188 @@
             color: #333;
         }
 
-        /* Adjust model container */
-        #model-container {
-            width: 800px;
-            height: 600px;
-            cursor: grab;
-            background: transparent;
-            position: relative;
+        /* Loading Overlay */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.5rem;
         }
 
-        /* Add overlay text if needed */
-        .content {
-            position: absolute;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            color: white;
-            text-align: center;
-            z-index: 500;
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            #model-container {
+                height: 50vh;
+            }
+            
+            .profile-card {
+                top: 2%;
+                padding: 0.8rem;
+            }
+            
+            .profile-image {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .social-btn {
+                width: 45px;
+                height: 45px;
+            }
         }
     </style>
 </head>
-<body>    <!-- ... (keep existing body content the same) ... -->
-
-    <!-- Video element to display the live camera feed -->
+<body>
+    <!-- Camera Background -->
     <video id="camera-video" autoplay muted playsinline></video>
 
-    <script>
-        // Access the BACK camera
-        navigator.mediaDevices.getUserMedia({ 
-            video: {
-                facingMode: 'environment' // This specifies the back camera
-            }
-        })
-        .then(function(stream) {
-            const videoElement = document.getElementById('camera-video');
-            videoElement.srcObject = stream;
-        })
-        .catch(function(error) {
-            console.error('Error accessing the camera:', error);
-        });
-    </script>
+    <!-- Loading Screen -->
+    <div class="loading">Initializing AR Experience...</div>
 
-    <!-- Remove the duplicate cameraFeed element and associated code -->
-    
-    <!-- ... (rest of the body content remains the same) ... -->
-      <!-- Profile Image -->
-      <div class="profile-container">
+    <!-- Profile Section -->
+    <div class="profile-card">
         <img src="WIN_20241012_12_42_31_Pro.jpg" class="profile-image" alt="Profile">
+        <h2>John Doe</h2>
+        <p>AR Developer</p>
     </div>
+
+    <!-- Social Links -->
     <div class="social-container">
-        <a href="www.instagram.com" target="_blank" class="social-btn">
+        <a href="https://www.instagram.com" class="social-btn" target="_blank">
             <i class="fab fa-instagram"></i>
         </a>
-        <a href="www.twitter.com" target="_blank" class="social-btn">
+        <a href="https://twitter.com" class="social-btn" target="_blank">
             <i class="fab fa-twitter"></i>
         </a>
-        <a href="www.linkedin.com" target="_blank" class="social-btn">
+        <a href="https://linkedin.com" class="social-btn" target="_blank">
             <i class="fab fa-linkedin"></i>
         </a>
     </div>
 
-    <div id="model-container"></div>   <script>
-        // Add click handler for social buttons
-        document.querySelectorAll('.social-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.open(btn.parentElement.href, '_blank');
-            });
-        });
-    </script>
- 
-        <video id="cameraFeed"></video>
-        <div id="model-container"></div>
-    <script>async function startCamera() {
-        try {
-            const video = document.getElementById('cameraFeed');
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" } // Use rear camera
-            });
-            video.srcObject = stream;
-            video.play();
-            video.style.display = 'block'; // Show camera feed
-            document.querySelector('.ar-container').style.display = 'block'; // Show AR content
-        } catch (error) {
-            console.error('Camera access error:', error);
-            showError('Camera access denied. Please allow camera permissions.');
-            document.body.style.background = "linear-gradient(45deg, #2196F3, #E91E63)";
-        }
-    }
+    <!-- 3D Model Container -->
+    <div id="model-container"></div>
 
-    // Debugging: Log initialization
-    console.log("Initializing AR Business Card...");
-
-    // Access camera feed
-    async function startCamera() {
-        try {
-            const video = document.getElementById('cameraFeed');
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" } // Use rear camera
-            });
-            video.srcObject = stream;
-            video.play();
-            video.style.display = 'block'; // Show camera feed
-            document.querySelector('.ar-container').style.display = 'block'; // Show AR content
-        } catch (error) {
-            console.error('Camera access error:', error);
-            showError('Camera access denied. Please allow camera permissions.');
-            document.body.style.background = "linear-gradient(45deg, #2196F3, #E91E63)";
-        }
-
-    <!-- Add this to your existing script section -->
-    <script>
-        // Add click handler for social buttons
-        document.querySelectorAll('.social-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.open(btn.parentElement.href, '_blank');
-            });
-        });
-    </script>
-
- 
+    <!-- Three.js Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
+        // Initialize AR Experience
         let scene, camera, renderer, model, mixer;
-        let rotateModel = true;
-        let mouseX = 0;
-        let mouseY = 0;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let modelRotation = { x: 0, y: 0 };
 
-        init();
-        animate();
+        // Camera Access
+        async function initializeCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                document.getElementById('camera-video').srcObject = stream;
+                document.querySelector('.loading').style.display = 'none';
+            } catch (error) {
+                console.error('Camera error:', error);
+                document.querySelector('.loading').textContent = 'Camera access required for AR experience';
+            }
+        }
 
-        function init() {
-            // Scene setup
+        // 3D Model Setup
+        function init3D() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-
             
-    // Renderer
-    renderer = new THREE.WebGLRenderer({ 
-        antialias: true,
-        alpha: true // Enable transparency
-    });
-    
-    renderer.setSize(800, 600);
-    renderer.setClearColor(0x000000, 0); // Transparent background
-    document.getElementById('model-container').appendChild(renderer.domElement);
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.domElement.style.touchAction = 'none';
+            document.getElementById('model-container').appendChild(renderer.domElement);
 
             // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
             directionalLight.position.set(5, 5, 5);
             scene.add(directionalLight);
 
-            // Load 3D model
-            const loader = new THREE.GLTFLoader();
-            loader.load(
+            // Load Model
+            new THREE.GLTFLoader().load(
                 './base.glb',
                 (gltf) => {
                     model = gltf.scene;
-                    model.scale.set(2, 2, 2);
+                    model.scale.set(1.5, 1.5, 1.5);
                     model.position.y = -1;
                     scene.add(model);
-
-                    // Set up hover interaction
-                    setupHoverInteraction();
+                    setupInteractions();
                 },
                 undefined,
-                (error) => {
-                    console.error('Error loading model:', error);
-                }
+                (error) => console.error('Model error:', error)
             );
 
             camera.position.z = 5;
 
-            // Event listeners
-            document.getElementById('model-container').addEventListener('mousemove', onMouseMove);
-            document.getElementById('model-container').addEventListener('mouseenter', () => rotateModel = true);
-            document.getElementById('model-container').addEventListener('mouseleave', () => rotateModel = false);
-        }
-
-        function setupHoverInteraction() {
-            // Add bounding box for hover detection
-            const bbox = new THREE.Box3().setFromObject(model);
-            const center = bbox.getCenter(new THREE.Vector3());
-            const size = bbox.getSize(new THREE.Vector3());
-
-            const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-            const material = new THREE.MeshBasicMaterial({
-                color: 0xff0000,
-                visible: false // Invisible collision box
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
             });
 
-            const hitArea = new THREE.Mesh(geometry, material);
-            hitArea.position.copy(center);
-            scene.add(hitArea);
+            // Touch Controls
+            document.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            });
 
-            // Raycaster for precise hover detection
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
+            document.addEventListener('touchmove', (e) => {
+                if (!model) return;
+                
+                const deltaX = e.touches[0].clientX - touchStartX;
+                const deltaY = e.touches[0].clientY - touchStartY;
+                
+                model.rotation.y = modelRotation.y + deltaX * 0.01;
+                model.rotation.x = modelRotation.x + deltaY * 0.01;
+            });
 
-            document.getElementById('model-container').addEventListener('mousemove', (event) => {
-                const rect = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObject(hitArea);
-
-                rotateModel = intersects.length > 0;
+            document.addEventListener('touchend', () => {
+                modelRotation.x = model.rotation.x;
+                modelRotation.y = model.rotation.y;
             });
         }
 
-        function onMouseMove(event) {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-        }
-
+        // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
-
-            // Smooth rotation based on hover state
-            if (rotateModel && model) {
-                model.rotation.y += 0.01;
-                model.rotation.x = mouseY * 0.1;
-                model.rotation.z = mouseX * 0.1;
-            }
-
             renderer.render(scene, camera);
         }
 
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = 800 / 600;
-            camera.updateProjectionMatrix();
-            renderer.setSize(800, 600);
-        });
- 
-         
-        
-</script>
+        // Initialize Everything
+        async function init() {
+            await initializeCamera();
+            init3D();
+            animate();
+        }
 
+        // Start Experience
+        init();
+    </script>
 </body>
 </html>
