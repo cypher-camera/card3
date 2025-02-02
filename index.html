@@ -153,7 +153,30 @@
         }
     </style>
 </head>
-<body>
+<body>    <!-- ... (keep existing body content the same) ... -->
+
+    <!-- Video element to display the live camera feed -->
+    <video id="camera-video" autoplay muted playsinline></video>
+
+    <script>
+        // Access the BACK camera
+        navigator.mediaDevices.getUserMedia({ 
+            video: {
+                facingMode: 'environment' // This specifies the back camera
+            }
+        })
+        .then(function(stream) {
+            const videoElement = document.getElementById('camera-video');
+            videoElement.srcObject = stream;
+        })
+        .catch(function(error) {
+            console.error('Error accessing the camera:', error);
+        });
+    </script>
+
+    <!-- Remove the duplicate cameraFeed element and associated code -->
+    
+    <!-- ... (rest of the body content remains the same) ... -->
       <!-- Profile Image -->
       <div class="profile-container">
         <img src="WIN_20241012_12_42_31_Pro.jpg" class="profile-image" alt="Profile">
