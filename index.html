@@ -138,59 +138,8 @@
             }
         }
     </style>
-      <style>
-        /* Add these new styles */
-        .brand-section {
-            position: fixed;
-            top: 10%;
-            left: 5%;
-            z-index: 3;
-            background: rgba(255,255,255,0.9);
-            padding: 1.2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            max-width: 80%;
-        }
-
-        .brand-title {
-            font-size: 1.8rem;
-            margin: 0;
-            color: #2c3e50;
-            font-weight: 700;
-        }
-
-        .brand-subtitle {
-            font-size: 1.2rem;
-            color: #7f8c8d;
-            margin: 0.5rem 0;
-        }
-
-        .social-container {
-            /* Modified to include website link */
-            gap: 12px;
-            bottom: 30px;
-        }
-
-        .website-link {
-            text-decoration: none;
-            color: #3498db;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-    </style>
 </head>
 <body>
-      <div class="brand-section">
-        <h1 class="brand-title">DSCAT</h1>
-        <h2 class="brand-subtitle">FALMER</h2>
-        <p class="brand-subtitle">Falmer</p>
-        <a href="[YOUR_WEBSITE_URL]" class="website-link" target="_blank">
-            <i class="fas fa-globe"></i>
-            Website
-        </a>
-    </div>
     <!-- Camera Background -->
     <video id="camera-video" autoplay muted playsinline></video>
 
@@ -205,16 +154,17 @@
     </div>
 
     <!-- Social Links -->
- <div class="social-container">
-        <a href="www.instagram.com" class="social-btn" target="_blank">
-            <i class="fas fa-globe"></i>
+    <div class="social-container">
+        <a href="https://www.instagram.com" class="social-btn" target="_blank">
+            <i class="fab fa-instagram"></i>
         </a>
         <a href="https://twitter.com" class="social-btn" target="_blank">
             <i class="fab fa-twitter"></i>
         </a>
-        <!-- Keep other social buttons as needed -->
+        <a href="https://linkedin.com" class="social-btn" target="_blank">
+            <i class="fab fa-linkedin"></i>
+        </a>
     </div>
-
 
     <!-- 3D Model Container -->
     <div id="model-container"></div>
@@ -334,4 +284,4 @@
         init();
     </script>
 </body>
-</html>
+</html> 
