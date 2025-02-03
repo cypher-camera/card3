@@ -6,7 +6,143 @@
     <title>AR Business Card</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Unified Styles */
+      <style>
+    /* Business Card Container */
+    .business-card {
+        position: fixed;
+        top: 5%;
+        left: 5%;
+        background: linear-gradient(135deg, #2c3e50 25%, #3498db 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        width: 300px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .geometric-pattern {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: 
+            repeating-linear-gradient(45deg,
+                rgba(255,255,255,0.1) 0px,
+                rgba(255,255,255,0.1) 4px,
+                transparent 4px,
+                transparent 8px
+            );
+        border-radius: 15px;
+        z-index: -1;
+    }
+
+    /* Nameplate Styles */
+    .nameplate {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .name {
+        font-size: 2rem;
+        font-weight: 700;
+        color: white;
+        line-height: 1;
+        margin: 0;
+    }
+
+    .title {
+        font-size: 1.1rem;
+        color: #ecf0f1;
+        margin-top: 0.5rem;
+    }
+
+    /* Profile Section */
+    .profile-section {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .profile-image {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .name-stack {
+        display: flex;
+        flex-direction: column;
+        color: white;
+        font-family: 'Arial Rounded MT Bold', sans-serif;
+    }
+
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: grid;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .action-btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.9);
+        color: #2c3e50;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
+    }
+
+    .action-btn:hover {
+        background: white;
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 768px) {
+        .business-card {
+            width: 85%;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 3%;
+        }
+        
+        .name {
+            font-size: 1.8rem;
+        }
+    }
+</style>
+
+<!-- Add to your HTML body -->
+<div class="business-card">
+    <div class="geometric-pattern"></div>
+    <div class="nameplate">
+        <h1 class="name">DSCAT<br>FALMER</h1>
+        <p class="title">AR Developer</p>
+    </div>
+
+    <div class="profile-section">
+        <img src="profile-image.jpg" class="profile-image" alt="Dscat Falmer">
+        <div class="name-stack">
+            <span style="font-size: 1.4em">DSCAT</span>
+            <span style="font-size: 1.2em">FALMER</span>
+        </div>
+    </div>
+
+    <div class="tech-preview"></div>
+
+    <div class="action-buttons">
+        <button class="action-btn">Website</button>
+        <button class="action-btn">Twitter</button>
+    </div>
+</div>
         * {
             touch-action: none;
             -webkit-tap-highlight-color: transparent;
@@ -149,7 +285,7 @@
     <!-- Profile Section -->
     <div class="profile-card">
         <img src="WIN_20241012_12_42_31_Pro.jpg" class="profile-image" alt="Profile">
-        <h2>John Doe</h2>
+        <h2>Archit Jindal</h2>
         <p>AR Developer</p>
     </div>
 
