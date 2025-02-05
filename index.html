@@ -30,18 +30,37 @@
             height: 100vh;
             object-fit: cover;
             z-index: 0;
-            transform: scaleX(-1); /* Mirror flip for better AR feel */
+            transform: scaleX(-1);
         }
 
-        /* 3D Model Container */
-        #model-container {
+        /* 2D Card Container */
+        #card-container {
             position: fixed;
-            width: 100vw;
-            height: 60vh;
-            bottom: 7;
-            left: 0;
+            width: 400px;
+            height: 250px;
+            bottom: 50%;
+            left: 50%;
+            transform: translate(-50%, 50%) perspective(1000px);
+            transform-style: preserve-3d;
             z-index: 5;
             touch-action: pan-y;
+        }
+
+        .rotating-card {
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transform-style: preserve-3d;
+            transition: transform 0.1s;
+            overflow: hidden;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         /* Profile Section */
@@ -52,10 +71,9 @@
             transform: translateX(-50%);
             z-index: 3;
             text-align: center;
-            background: rgba(rgba(255, 255, 255, 0));
+            background: rgba(255, 255, 255, 0);
             padding: 1rem;
             border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0);
             max-width: 90%;
         }
 
@@ -116,10 +134,10 @@
             font-size: 1.5rem;
         }
 
-        /* Mobile Optimization */
         @media (max-width: 768px) {
-            #model-container {
-                height: 50vh;
+            #card-container {
+                width: 400px;
+                height: 250px;
             }
             
             .profile-card {
@@ -166,20 +184,18 @@
         </a>
     </div>
 
-    <!-- 3D Model Container -->
-    <div id="model-container"></div>
-
-    <!-- Three.js Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- 2D Card Container -->
+    <div id="card-container">
+        <div class="rotating-card">
+            <img src="front.jpg" class="card-image" alt="Business Card">
+        </div>
+    </div>
 
     <script>
-        // Initialize AR Experience
-        let scene, camera, renderer, model, mixer;
         let touchStartX = 0;
         let touchStartY = 0;
-        let modelRotation = { x: 0, y: 0 };
+        let currentRotation = { x: 0, y: 0 };
+        const card = document.querySelector('.rotating-card');
 
         // Camera Access
         async function initializeCamera() {
@@ -199,85 +215,38 @@
             }
         }
 
-        // 3D Model Setup
-        function init3D() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true,
-                alpha: true,
-                powerPreference: "high-performance"
-            });
-            
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.domElement.style.touchAction = 'none';
-            document.getElementById('model-container').appendChild(renderer.domElement);
-
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
-            
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            directionalLight.position.set(5, 5, 5);
-            scene.add(directionalLight);
-
-            // Load Model
-            new THREE.GLTFLoader().load(
-                './base.glb',
-                (gltf) => {
-                    model = gltf.scene;
-                    model.scale.set(1.5, 1.5, 1.5);
-                    model.position.y = -1;
-                    scene.add(model);
-                    setupInteractions();
-                },
-                undefined,
-                (error) => console.error('Model error:', error)
-            );
-
-            camera.position.z = 5;
-
-            // Handle Resize
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-
-            // Touch Controls
+        // Touch Handling
+        function setupInteractions() {
             document.addEventListener('touchstart', (e) => {
                 touchStartX = e.touches[0].clientX;
                 touchStartY = e.touches[0].clientY;
             });
 
             document.addEventListener('touchmove', (e) => {
-                if (!model) return;
-                
                 const deltaX = e.touches[0].clientX - touchStartX;
                 const deltaY = e.touches[0].clientY - touchStartY;
                 
-                model.rotation.y = modelRotation.y + deltaX * 0.01;
-                model.rotation.x = modelRotation.x + deltaY * 0.01;
+                const rotateY = currentRotation.y + deltaX * 0.2;
+                const rotateX = currentRotation.x - deltaY * 0.2;
+                
+                card.style.transform = `
+                    rotateX(${rotateX}deg) 
+                    rotateY(${rotateY}deg)
+                `;
             });
 
             document.addEventListener('touchend', () => {
-                modelRotation.x = model.rotation.x;
-                modelRotation.y = model.rotation.y;
+                currentRotation = {
+                    x: parseFloat(card.style.transform.match(/rotateX\(([-\d.]+)deg\)/)?.[1] || 0),
+                    y: parseFloat(card.style.transform.match(/rotateY\(([-\d.]+)deg\)/)?.[1] || 0)
+                };
             });
-        }
-
-        // Animation Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
         }
 
         // Initialize Everything
         async function init() {
             await initializeCamera();
-            init3D();
-            animate();
+            setupInteractions();
         }
 
         // Start Experience
