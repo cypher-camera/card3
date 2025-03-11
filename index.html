@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Finger Tracking (Back Camera)</title>
+    <title>Precise Back Camera Finger Tracking</title>
     <style>
         #videoContainer {
             position: relative;
             width: 640px;
             height: 480px;
+            margin: 0 auto;
         }
         video {
             width: 100%;
             height: 100%;
+            object-fit: cover;
         }
         .track-box {
             position: absolute;
@@ -18,112 +20,165 @@
             background: transparent;
             display: none;
             pointer-events: none;
-            box-shadow: 0 0 10px #00ff00;
+            box-shadow: 0 0 15px #00ff00;
+            transform: translate(-50%, -50%);
         }
         #status {
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 5px;
+            text-align: center;
+            padding: 10px;
+            font-family: Arial;
         }
     </style>
 </head>
 <body>
+    <div id="status">Initializing back camera...</div>
     <div id="videoContainer">
         <video id="videoElement" autoplay playsinline></video>
         <div id="trackBox" class="track-box"></div>
     </div>
-    <div id="status">Loading...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
     <script>
         const videoElement = document.getElementById('videoElement');
         const trackBox = document.getElementById('trackBox');
         const statusElement = document.getElementById('status');
+        let isBackCameraAvailable = false;
 
-        let lastDetectionTime = Date.now();
-        let boxSmoothX = 0;
-        let boxSmoothY = 0;
+        // 1. EXPLICIT BACK CAMERA SELECTION
+        async function initializeBackCamera() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const backCamera = devices.find(device => 
+                    device.kind === 'videoinput' && 
+                    device.label.toLowerCase().includes('back')
+                );
 
-        const hands = new Hands({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                if (!backCamera) {
+                    statusElement.innerHTML = "Back camera not found!<br>Using default camera.";
+                    isBackCameraAvailable = false;
+                    return;
+                }
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        deviceId: { exact: backCamera.deviceId },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        frameRate: { ideal: 60 }
+                    }
+                });
+                
+                videoElement.srcObject = stream;
+                isBackCameraAvailable = true;
+                statusElement.textContent = "Back camera active - Show your hand!";
+
+            } catch (error) {
+                statusElement.textContent = `Camera error: ${error.message}`;
+                console.error("Camera initialization failed:", error);
             }
+        }
+
+        // 2. PRECISE FINGER TRACKING
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
         hands.setOptions({
             maxNumHands: 1,
             modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
         });
 
+        // 3. ACCURATE COORDINATE MAPPING
+        function adjustCoordinates(landmark, video) {
+            const videoRect = video.getBoundingClientRect();
+            return {
+                x: landmark.x * video.videoWidth - videoRect.left,
+                y: landmark.y * video.videoHeight - videoRect.top
+            };
+        }
+
+        // 4. SMOOTHING WITH VELOCITY PREDICTION
+        let lastPositions = [];
+        function smoothPosition(newX, newY) {
+            const now = Date.now();
+            lastPositions.push({ x: newX, y: newY, timestamp: now });
+            
+            // Keep only last 3 positions (50ms window)
+            lastPositions = lastPositions.filter(pos => now - pos.timestamp < 50);
+            
+            // Calculate weighted average with velocity prediction
+            const totalWeight = lastPositions.reduce((acc, _, i) => acc + (i + 1), 0);
+            let avgX = 0, avgY = 0;
+            
+            lastPositions.forEach((pos, i) => {
+                const weight = (i + 1) / totalWeight;
+                avgX += pos.x * weight;
+                avgY += pos.y * weight;
+            });
+
+            // Add velocity prediction (15ms ahead)
+            if (lastPositions.length > 1) {
+                const dx = avgX - lastPositions[0].x;
+                const dy = avgY - lastPositions[0].y;
+                const dt = (now - lastPositions[0].timestamp) || 1;
+                avgX += dx * (15 / dt);
+                avgY += dy * (15 / dt);
+            }
+
+            return { x: avgX, y: avgY };
+        }
+
         hands.onResults((results) => {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            if (results.multiHandLandmarks?.[0]) {
                 const landmarks = results.multiHandLandmarks[0];
                 const indexTip = landmarks[8];
                 const middleTip = landmarks[12];
-
-                const minX = Math.min(indexTip.x, middleTip.x);
-                const maxX = Math.max(indexTip.x, middleTip.x);
-                const minY = Math.min(indexTip.y, middleTip.y);
-                const maxY = Math.max(indexTip.y, middleTip.y);
-
-                const videoWidth = videoElement.videoWidth;
-                const videoHeight = videoElement.videoHeight;
                 
-                const boxX = minX * videoWidth;
-                const boxY = minY * videoHeight;
-                const boxWidth = (maxX - minX) * videoWidth;
-                const boxHeight = (maxY - minY) * videoHeight;
+                // Get precise adjusted coordinates
+                const indexPos = adjustCoordinates(indexTip, videoElement);
+                const middlePos = adjustCoordinates(middleTip, videoElement);
 
-                const smoothFactor = 0.4;
-                boxSmoothX = boxSmoothX + (boxX - boxSmoothX) * smoothFactor;
-                boxSmoothY = boxSmoothY + (boxY - boxSmoothY) * smoothFactor;
+                // Calculate box boundaries
+                const minX = Math.min(indexPos.x, middlePos.x);
+                const maxX = Math.max(indexPos.x, middlePos.x);
+                const minY = Math.min(indexPos.y, middlePos.y);
+                const maxY = Math.max(indexPos.y, middlePos.y);
 
+                // Apply smoothing with prediction
+                const smoothed = smoothPosition((minX + maxX)/2, (minY + maxY)/2);
+
+                // Update tracking box
                 trackBox.style.display = 'block';
-                trackBox.style.left = `${boxSmoothX - 10}px`;
-                trackBox.style.top = `${boxSmoothY - 10}px`;
-                trackBox.style.width = `${boxWidth + 20}px`;
-                trackBox.style.height = `${boxHeight + 20}px`;
+                trackBox.style.left = `${smoothed.x}px`;
+                trackBox.style.top = `${smoothed.y}px`;
+                trackBox.style.width = `${maxX - minX + 30}px`;
+                trackBox.style.height = `${maxY - minY + 30}px`;
 
-                lastDetectionTime = Date.now();
-                statusElement.textContent = 'Tracking active';
-            } else if (Date.now() - lastDetectionTime > 100) {
+            } else {
                 trackBox.style.display = 'none';
-                statusElement.textContent = 'Searching for hands...';
             }
         });
 
-        // Modified camera configuration for back camera
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({ image: videoElement });
-            },
-            width: 640,
-            height: 480,
-            mediaStreamConstraints: {
-                video: {
-                    facingMode: 'environment',  // This forces back camera
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                }
-            }
-        });
-
-        camera.start()
-            .then(() => statusElement.textContent = 'Camera started')
-            .catch(e => {
-                statusElement.textContent = `Error: ${e.toString()}`;
-                console.error(e);
+        // 5. MAIN INITIALIZATION
+        async function main() {
+            await initializeBackCamera();
+            
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({ image: videoElement });
+                },
+                width: 640,
+                height: 480
             });
 
-        window.addEventListener('resize', () => {
-            trackBox.style.display = 'none';
-        });
+            await camera.start();
+        }
+
+        main().catch(console.error);
     </script>
 </body>
 </html>
