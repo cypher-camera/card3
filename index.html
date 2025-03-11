@@ -1,150 +1,129 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Hand Tracking</title>
+    <title>Finger Tracking (Back Camera)</title>
     <style>
-        /* ... (keep existing styles the same) ... */
+        #videoContainer {
+            position: relative;
+            width: 640px;
+            height: 480px;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+        }
+        .track-box {
+            position: absolute;
+            border: 3px solid #00ff00;
+            background: transparent;
+            display: none;
+            pointer-events: none;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        #status {
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
-    <div id="status">🟠 Starting camera...</div>
     <div id="videoContainer">
-        <video id="videoElement" autoplay playsinline muted></video>
+        <video id="videoElement" autoplay playsinline></video>
         <div id="trackBox" class="track-box"></div>
     </div>
+    <div id="status">Loading...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
     <script>
-        const statusElement = document.getElementById('status');
         const videoElement = document.getElementById('videoElement');
         const trackBox = document.getElementById('trackBox');
-        let camera = null;
+        const statusElement = document.getElementById('status');
 
-        // 1. Enhanced MediaPipe Hands Configuration
+        let lastDetectionTime = Date.now();
+        let boxSmoothX = 0;
+        let boxSmoothY = 0;
+
         const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
         });
 
         hands.setOptions({
-            selfieMode: true,
             maxNumHands: 1,
-            modelComplexity: 0,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
         });
 
-        // 2. Camera Initialization with Fallbacks
-        async function initializeCamera() {
-            try {
-                // Try environment camera first
-                camera = new Camera(videoElement, {
-                    onFrame: async () => {
-                        try {
-                            await hands.send({ image: videoElement });
-                        } catch (error) {
-                            statusElement.textContent = "🔴 Frame processing error";
-                        }
-                    },
-                    width: 640,
-                    height: 480,
-                    facingMode: 'environment'
-                });
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indexTip = landmarks[8];
+                const middleTip = landmarks[12];
 
-                await camera.start();
-                statusElement.textContent = "🟢 Camera ready! Show your hand";
+                const minX = Math.min(indexTip.x, middleTip.x);
+                const maxX = Math.max(indexTip.x, middleTip.x);
+                const minY = Math.min(indexTip.y, middleTip.y);
+                const maxY = Math.max(indexTip.y, middleTip.y);
+
+                const videoWidth = videoElement.videoWidth;
+                const videoHeight = videoElement.videoHeight;
                 
-                // Add resize handler for proper coordinate mapping
-                window.addEventListener('resize', updateCoordinateSystem);
-                updateCoordinateSystem();
+                const boxX = minX * videoWidth;
+                const boxY = minY * videoHeight;
+                const boxWidth = (maxX - minX) * videoWidth;
+                const boxHeight = (maxY - minY) * videoHeight;
 
-            } catch (environmentError) {
-                console.log('Environment camera failed, trying user-facing');
-                try {
-                    // Fallback to user-facing camera
-                    camera = new Camera(videoElement, {
-                        onFrame: async () => {
-                            await hands.send({ image: videoElement });
-                        },
-                        width: 640,
-                        height: 480,
-                        facingMode: 'user'
-                    });
-                    await camera.start();
-                    statusElement.textContent = "🟢 Camera ready! Show your hand";
-                } catch (userError) {
-                    statusElement.textContent = "🔴 Camera access denied";
-                    console.error('Camera initialization failed:', userError);
+                const smoothFactor = 0.4;
+                boxSmoothX = boxSmoothX + (boxX - boxSmoothX) * smoothFactor;
+                boxSmoothY = boxSmoothY + (boxY - boxSmoothY) * smoothFactor;
+
+                trackBox.style.display = 'block';
+                trackBox.style.left = `${boxSmoothX - 10}px`;
+                trackBox.style.top = `${boxSmoothY - 10}px`;
+                trackBox.style.width = `${boxWidth + 20}px`;
+                trackBox.style.height = `${boxHeight + 20}px`;
+
+                lastDetectionTime = Date.now();
+                statusElement.textContent = 'Tracking active';
+            } else if (Date.now() - lastDetectionTime > 100) {
+                trackBox.style.display = 'none';
+                statusElement.textContent = 'Searching for hands...';
+            }
+        });
+
+        // Modified camera configuration for back camera
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({ image: videoElement });
+            },
+            width: 640,
+            height: 480,
+            mediaStreamConstraints: {
+                video: {
+                    facingMode: 'environment',  // This forces back camera
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
                 }
             }
-        }
-
-        // 3. Coordinate System Management
-        let videoRect = null;
-        function updateCoordinateSystem() {
-            videoRect = videoElement.getBoundingClientRect();
-        }
-
-        function toScreenCoordinates(x, y) {
-            return {
-                x: x * videoRect.width + videoRect.left,
-                y: y * videoRect.height + videoRect.top
-            };
-        }
-
-        // 4. Optimized Hand Tracking Processing
-        hands.onResults((results) => {
-            if (!results.multiHandLandmarks) {
-                trackBox.style.display = 'none';
-                return;
-            }
-
-            const landmarks = results.multiHandLandmarks[0];
-            const indexTip = landmarks[8];
-            const middleTip = landmarks[12];
-
-            const indexPos = toScreenCoordinates(indexTip.x, indexTip.y);
-            const middlePos = toScreenCoordinates(middleTip.x, middleTip.y);
-
-            const boxWidth = Math.abs(indexPos.x - middlePos.x) + 40;
-            const boxHeight = Math.abs(indexPos.y - middlePos.y) + 40;
-            const centerX = (indexPos.x + middlePos.x) / 2;
-            const centerY = (indexPos.y + middlePos.y) / 2;
-
-            trackBox.style.display = 'block';
-            trackBox.style.left = `${centerX}px`;
-            trackBox.style.top = `${centerY}px`;
-            trackBox.style.width = `${boxWidth}px`;
-            trackBox.style.height = `${boxHeight}px`;
         });
 
-        // 5. Camera Cleanup and Error Handling
-        function stopCamera() {
-            if (camera) {
-                camera.stop();
-                camera = null;
-            }
-            if (videoElement.srcObject) {
-                videoElement.srcObject.getTracks().forEach(track => track.stop());
-            }
-        }
+        camera.start()
+            .then(() => statusElement.textContent = 'Camera started')
+            .catch(e => {
+                statusElement.textContent = `Error: ${e.toString()}`;
+                console.error(e);
+            });
 
-        // Initialize when ready
-        (async function() {
-            try {
-                await hands.initialize();
-                await initializeCamera();
-            } catch (error) {
-                statusElement.textContent = `🔴 Initialization failed: ${error.message}`;
-                console.error('Initialization error:', error);
-            }
-        })();
-
-        // Cleanup on exit
-        window.addEventListener('beforeunload', stopCamera);
-        window.addEventListener('pagehide', stopCamera);
+        window.addEventListener('resize', () => {
+            trackBox.style.display = 'none';
+        });
     </script>
 </body>
 </html>
