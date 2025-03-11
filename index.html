@@ -4,42 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mobile Finger Tracking</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            touch-action: none;
-        }
-        #videoContainer {
-            position: fixed;
-            width: 100%;
-            height: 100vh;
-            background: black;
-        }
-        #videoElement {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .track-box {
-            position: absolute;
-            border: 4px solid #00FF00;
-            background: rgba(0,255,0,0.2);
-            display: none;
-            border-radius: 10px;
-            box-shadow: 0 0 20px #00FF00;
-            transform: translate(-50%, -50%);
-        }
-        #status {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 8px;
-            border-radius: 5px;
-            font-family: Arial;
-            z-index: 100;
-        }
+        /* ... (keep existing styles the same) ... */
     </style>
 </head>
 <body>
@@ -58,45 +23,19 @@
         const trackBox = document.getElementById('trackBox');
         let isTracking = false;
 
-        // 1. MOBILE CAMERA SETUP
-        async function setupCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        frameRate: { ideal: 60 }
-                    }
-                });
-                
-                videoElement.srcObject = stream;
-                statusElement.textContent = "🟢 Camera ready! Show your hand";
-                return new Promise(resolve => {
-                    videoElement.onloadedmetadata = () => {
-                        videoElement.play();
-                        resolve();
-                    };
-                });
-            } catch (error) {
-                statusElement.textContent = `🔴 Error: ${error.message}`;
-                throw error;
-            }
-        }
-
-        // 2. MOBILE-OPTIMIZED HAND TRACKING
+        // 1. MEDIAPIPE HANDS CONFIGURATION
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
         hands.setOptions({
             maxNumHands: 1,
-            modelComplexity: 0, // Reduced complexity for mobile
+            modelComplexity: 0,
             minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.6
         });
 
-        // 3. PRECISE MOBILE COORDINATE MAPPING
+        // 2. COORDINATE MAPPING FUNCTION
         function mapCoordinates(x, y) {
             const videoRect = videoElement.getBoundingClientRect();
             const scaleX = videoElement.videoWidth / videoRect.width;
@@ -108,35 +47,31 @@
             };
         }
 
+        // 3. HAND RESULTS PROCESSING
         hands.onResults((results) => {
             if (results.multiHandLandmarks?.[0]) {
                 const landmarks = results.multiHandLandmarks[0];
                 const indexTip = landmarks[8];
                 const middleTip = landmarks[12];
                 
-                // Convert to screen coordinates
                 const indexPos = mapCoordinates(indexTip.x * videoElement.videoWidth, 
                                               indexTip.y * videoElement.videoHeight);
                 const middlePos = mapCoordinates(middleTip.x * videoElement.videoWidth, 
                                                middleTip.y * videoElement.videoHeight);
 
-                // Calculate box dimensions
                 const boxWidth = Math.abs(indexPos.x - middlePos.x) + 40;
                 const boxHeight = Math.abs(indexPos.y - middlePos.y) + 40;
                 const centerX = (indexPos.x + middlePos.x) / 2;
                 const centerY = (indexPos.y + middlePos.y) / 2;
 
-                // Update box position
                 trackBox.style.display = 'block';
                 trackBox.style.left = `${centerX}px`;
                 trackBox.style.top = `${centerY}px`;
                 trackBox.style.width = `${boxWidth}px`;
                 trackBox.style.height = `${boxHeight}px`;
 
-                if (!isTracking) {
-                    statusElement.textContent = "🟢 Tracking active!";
-                    isTracking = true;
-                }
+                statusElement.textContent = "🟢 Tracking active!";
+                isTracking = true;
             } else {
                 trackBox.style.display = 'none';
                 if (isTracking) {
@@ -146,37 +81,45 @@
             }
         });
 
-        // 4. MOBILE PERFORMANCE OPTIMIZATION
+        // 4. CAMERA INITIALIZATION
         async function main() {
             try {
-                await setupCamera();
-                
                 const camera = new Camera(videoElement, {
                     onFrame: async () => {
                         try {
                             await hands.send({ image: videoElement });
                         } catch (error) {
-                            statusElement.textContent = "🔴 Tracking error - Reload page";
+                            statusElement.textContent = "🔴 Tracking error - Move hand into view";
                         }
                     },
-                    width: 640,
-                    height: 480
+                    width: 1280,
+                    height: 720,
+                    facingMode: 'environment'
                 });
 
                 await camera.start();
-                
-                // iOS compatibility hack
+                statusElement.textContent = "🟢 Camera ready! Show your hand";
+
+                // iOS mirror fix
                 if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
                     videoElement.style.transform = 'scale(-1, 1)';
                 }
 
             } catch (error) {
-                statusElement.textContent = `🔴 Fatal error: ${error.message}`;
+                statusElement.textContent = `🔴 Error: ${error.message}`;
+                console.error('Camera initialization error:', error);
             }
         }
 
         // 5. START APPLICATION
         main();
+
+        // 6. CLEANUP ON UNLOAD
+        window.addEventListener('beforeunload', () => {
+            if (videoElement.srcObject) {
+                videoElement.srcObject.getTracks().forEach(track => track.stop());
+            }
+        });
     </script>
 </body>
 </html>
