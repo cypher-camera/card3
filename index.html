@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Finger Tracking (Back Camera)</title>
+    <title>Finger Tracking</title>
     <style>
         #videoContainer {
             position: relative;
@@ -9,6 +9,8 @@
             height: 480px;
         }
         video {
+            transform: rotateY(180deg);
+            -webkit-transform: rotateY(180deg);
             width: 100%;
             height: 100%;
         }
@@ -64,14 +66,16 @@
         hands.onResults((results) => {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
-                const indexTip = landmarks[8];
-                const middleTip = landmarks[12];
-
+                const indexTip = landmarks[8]; // Index finger tip
+                const middleTip = landmarks[12]; // Middle finger tip
+                
+                // Calculate box coordinates
                 const minX = Math.min(indexTip.x, middleTip.x);
                 const maxX = Math.max(indexTip.x, middleTip.x);
                 const minY = Math.min(indexTip.y, middleTip.y);
                 const maxY = Math.max(indexTip.y, middleTip.y);
 
+                // Convert normalized coordinates to pixels
                 const videoWidth = videoElement.videoWidth;
                 const videoHeight = videoElement.videoHeight;
                 
@@ -80,10 +84,12 @@
                 const boxWidth = (maxX - minX) * videoWidth;
                 const boxHeight = (maxY - minY) * videoHeight;
 
+                // Smooth movements using linear interpolation
                 const smoothFactor = 0.4;
                 boxSmoothX = boxSmoothX + (boxX - boxSmoothX) * smoothFactor;
                 boxSmoothY = boxSmoothY + (boxY - boxSmoothY) * smoothFactor;
 
+                // Update box position with smooth transitions
                 trackBox.style.display = 'block';
                 trackBox.style.left = `${boxSmoothX - 10}px`;
                 trackBox.style.top = `${boxSmoothY - 10}px`;
@@ -98,20 +104,13 @@
             }
         });
 
-        // Modified camera configuration for back camera
+        // Camera setup
         const camera = new Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({ image: videoElement });
             },
             width: 640,
-            height: 480,
-            mediaStreamConstraints: {
-                video: {
-                    facingMode: 'environment',  // This forces back camera
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                }
-            }
+            height: 480
         });
 
         camera.start()
@@ -121,6 +120,7 @@
                 console.error(e);
             });
 
+        // Handle window resize
         window.addEventListener('resize', () => {
             trackBox.style.display = 'none';
         });
