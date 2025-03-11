@@ -1,37 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Precise Back Camera Finger Tracking</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Finger Tracking</title>
     <style>
-        #videoContainer {
-            position: relative;
-            width: 640px;
-            height: 480px;
-            margin: 0 auto;
+        body {
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
         }
-        video {
+        #videoContainer {
+            position: fixed;
+            width: 100%;
+            height: 100vh;
+            background: black;
+        }
+        #videoElement {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
         }
         .track-box {
             position: absolute;
-            border: 3px solid #00ff00;
-            background: transparent;
+            border: 4px solid #00FF00;
+            background: rgba(0,255,0,0.2);
             display: none;
-            pointer-events: none;
-            box-shadow: 0 0 15px #00ff00;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00FF00;
             transform: translate(-50%, -50%);
         }
         #status {
-            text-align: center;
-            padding: 10px;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 8px;
+            border-radius: 5px;
             font-family: Arial;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
-    <div id="status">Initializing back camera...</div>
+    <div id="status">🟠 Initializing...</div>
     <div id="videoContainer">
         <video id="videoElement" autoplay playsinline></video>
         <div id="trackBox" class="track-box"></div>
@@ -41,29 +53,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
     <script>
+        const statusElement = document.getElementById('status');
         const videoElement = document.getElementById('videoElement');
         const trackBox = document.getElementById('trackBox');
-        const statusElement = document.getElementById('status');
-        let isBackCameraAvailable = false;
+        let isTracking = false;
 
-        // 1. EXPLICIT BACK CAMERA SELECTION
-        async function initializeBackCamera() {
+        // 1. MOBILE CAMERA SETUP
+        async function setupCamera() {
             try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const backCamera = devices.find(device => 
-                    device.kind === 'videoinput' && 
-                    device.label.toLowerCase().includes('back')
-                );
-
-                if (!backCamera) {
-                    statusElement.innerHTML = "Back camera not found!<br>Using default camera.";
-                    isBackCameraAvailable = false;
-                    return;
-                }
-
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        deviceId: { exact: backCamera.deviceId },
+                        facingMode: 'environment',
                         width: { ideal: 1280 },
                         height: { ideal: 720 },
                         frameRate: { ideal: 60 }
@@ -71,65 +71,41 @@
                 });
                 
                 videoElement.srcObject = stream;
-                isBackCameraAvailable = true;
-                statusElement.textContent = "Back camera active - Show your hand!";
-
+                statusElement.textContent = "🟢 Camera ready! Show your hand";
+                return new Promise(resolve => {
+                    videoElement.onloadedmetadata = () => {
+                        videoElement.play();
+                        resolve();
+                    };
+                });
             } catch (error) {
-                statusElement.textContent = `Camera error: ${error.message}`;
-                console.error("Camera initialization failed:", error);
+                statusElement.textContent = `🔴 Error: ${error.message}`;
+                throw error;
             }
         }
 
-        // 2. PRECISE FINGER TRACKING
+        // 2. MOBILE-OPTIMIZED HAND TRACKING
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
         hands.setOptions({
             maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
+            modelComplexity: 0, // Reduced complexity for mobile
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
         });
 
-        // 3. ACCURATE COORDINATE MAPPING
-        function adjustCoordinates(landmark, video) {
-            const videoRect = video.getBoundingClientRect();
+        // 3. PRECISE MOBILE COORDINATE MAPPING
+        function mapCoordinates(x, y) {
+            const videoRect = videoElement.getBoundingClientRect();
+            const scaleX = videoElement.videoWidth / videoRect.width;
+            const scaleY = videoElement.videoHeight / videoRect.height;
+            
             return {
-                x: landmark.x * video.videoWidth - videoRect.left,
-                y: landmark.y * video.videoHeight - videoRect.top
+                x: (x / scaleX) + videoRect.left,
+                y: (y / scaleY) + videoRect.top
             };
-        }
-
-        // 4. SMOOTHING WITH VELOCITY PREDICTION
-        let lastPositions = [];
-        function smoothPosition(newX, newY) {
-            const now = Date.now();
-            lastPositions.push({ x: newX, y: newY, timestamp: now });
-            
-            // Keep only last 3 positions (50ms window)
-            lastPositions = lastPositions.filter(pos => now - pos.timestamp < 50);
-            
-            // Calculate weighted average with velocity prediction
-            const totalWeight = lastPositions.reduce((acc, _, i) => acc + (i + 1), 0);
-            let avgX = 0, avgY = 0;
-            
-            lastPositions.forEach((pos, i) => {
-                const weight = (i + 1) / totalWeight;
-                avgX += pos.x * weight;
-                avgY += pos.y * weight;
-            });
-
-            // Add velocity prediction (15ms ahead)
-            if (lastPositions.length > 1) {
-                const dx = avgX - lastPositions[0].x;
-                const dy = avgY - lastPositions[0].y;
-                const dt = (now - lastPositions[0].timestamp) || 1;
-                avgX += dx * (15 / dt);
-                avgY += dy * (15 / dt);
-            }
-
-            return { x: avgX, y: avgY };
         }
 
         hands.onResults((results) => {
@@ -138,47 +114,69 @@
                 const indexTip = landmarks[8];
                 const middleTip = landmarks[12];
                 
-                // Get precise adjusted coordinates
-                const indexPos = adjustCoordinates(indexTip, videoElement);
-                const middlePos = adjustCoordinates(middleTip, videoElement);
+                // Convert to screen coordinates
+                const indexPos = mapCoordinates(indexTip.x * videoElement.videoWidth, 
+                                              indexTip.y * videoElement.videoHeight);
+                const middlePos = mapCoordinates(middleTip.x * videoElement.videoWidth, 
+                                               middleTip.y * videoElement.videoHeight);
 
-                // Calculate box boundaries
-                const minX = Math.min(indexPos.x, middlePos.x);
-                const maxX = Math.max(indexPos.x, middlePos.x);
-                const minY = Math.min(indexPos.y, middlePos.y);
-                const maxY = Math.max(indexPos.y, middlePos.y);
+                // Calculate box dimensions
+                const boxWidth = Math.abs(indexPos.x - middlePos.x) + 40;
+                const boxHeight = Math.abs(indexPos.y - middlePos.y) + 40;
+                const centerX = (indexPos.x + middlePos.x) / 2;
+                const centerY = (indexPos.y + middlePos.y) / 2;
 
-                // Apply smoothing with prediction
-                const smoothed = smoothPosition((minX + maxX)/2, (minY + maxY)/2);
-
-                // Update tracking box
+                // Update box position
                 trackBox.style.display = 'block';
-                trackBox.style.left = `${smoothed.x}px`;
-                trackBox.style.top = `${smoothed.y}px`;
-                trackBox.style.width = `${maxX - minX + 30}px`;
-                trackBox.style.height = `${maxY - minY + 30}px`;
+                trackBox.style.left = `${centerX}px`;
+                trackBox.style.top = `${centerY}px`;
+                trackBox.style.width = `${boxWidth}px`;
+                trackBox.style.height = `${boxHeight}px`;
 
+                if (!isTracking) {
+                    statusElement.textContent = "🟢 Tracking active!";
+                    isTracking = true;
+                }
             } else {
                 trackBox.style.display = 'none';
+                if (isTracking) {
+                    statusElement.textContent = "🟠 Show your hand...";
+                    isTracking = false;
+                }
             }
         });
 
-        // 5. MAIN INITIALIZATION
+        // 4. MOBILE PERFORMANCE OPTIMIZATION
         async function main() {
-            await initializeBackCamera();
-            
-            const camera = new Camera(videoElement, {
-                onFrame: async () => {
-                    await hands.send({ image: videoElement });
-                },
-                width: 640,
-                height: 480
-            });
+            try {
+                await setupCamera();
+                
+                const camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        try {
+                            await hands.send({ image: videoElement });
+                        } catch (error) {
+                            statusElement.textContent = "🔴 Tracking error - Reload page";
+                        }
+                    },
+                    width: 640,
+                    height: 480
+                });
 
-            await camera.start();
+                await camera.start();
+                
+                // iOS compatibility hack
+                if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                    videoElement.style.transform = 'scale(-1, 1)';
+                }
+
+            } catch (error) {
+                statusElement.textContent = `🔴 Fatal error: ${error.message}`;
+            }
         }
 
-        main().catch(console.error);
+        // 5. START APPLICATION
+        main();
     </script>
 </body>
 </html>
