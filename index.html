@@ -2,15 +2,15 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile Finger Tracking</title>
+    <title>Hand Tracking</title>
     <style>
         /* ... (keep existing styles the same) ... */
     </style>
 </head>
 <body>
-    <div id="status">🟠 Initializing...</div>
+    <div id="status">🟠 Starting camera...</div>
     <div id="videoContainer">
-        <video id="videoElement" autoplay playsinline></video>
+        <video id="videoElement" autoplay playsinline muted></video>
         <div id="trackBox" class="track-box"></div>
     </div>
 
@@ -21,105 +21,130 @@
         const statusElement = document.getElementById('status');
         const videoElement = document.getElementById('videoElement');
         const trackBox = document.getElementById('trackBox');
-        let isTracking = false;
+        let camera = null;
 
-        // 1. MEDIAPIPE HANDS CONFIGURATION
+        // 1. Enhanced MediaPipe Hands Configuration
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
 
         hands.setOptions({
+            selfieMode: true,
             maxNumHands: 1,
             modelComplexity: 0,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.6
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
         });
 
-        // 2. COORDINATE MAPPING FUNCTION
-        function mapCoordinates(x, y) {
-            const videoRect = videoElement.getBoundingClientRect();
-            const scaleX = videoElement.videoWidth / videoRect.width;
-            const scaleY = videoElement.videoHeight / videoRect.height;
-            
-            return {
-                x: (x / scaleX) + videoRect.left,
-                y: (y / scaleY) + videoRect.top
-            };
-        }
-
-        // 3. HAND RESULTS PROCESSING
-        hands.onResults((results) => {
-            if (results.multiHandLandmarks?.[0]) {
-                const landmarks = results.multiHandLandmarks[0];
-                const indexTip = landmarks[8];
-                const middleTip = landmarks[12];
-                
-                const indexPos = mapCoordinates(indexTip.x * videoElement.videoWidth, 
-                                              indexTip.y * videoElement.videoHeight);
-                const middlePos = mapCoordinates(middleTip.x * videoElement.videoWidth, 
-                                               middleTip.y * videoElement.videoHeight);
-
-                const boxWidth = Math.abs(indexPos.x - middlePos.x) + 40;
-                const boxHeight = Math.abs(indexPos.y - middlePos.y) + 40;
-                const centerX = (indexPos.x + middlePos.x) / 2;
-                const centerY = (indexPos.y + middlePos.y) / 2;
-
-                trackBox.style.display = 'block';
-                trackBox.style.left = `${centerX}px`;
-                trackBox.style.top = `${centerY}px`;
-                trackBox.style.width = `${boxWidth}px`;
-                trackBox.style.height = `${boxHeight}px`;
-
-                statusElement.textContent = "🟢 Tracking active!";
-                isTracking = true;
-            } else {
-                trackBox.style.display = 'none';
-                if (isTracking) {
-                    statusElement.textContent = "🟠 Show your hand...";
-                    isTracking = false;
-                }
-            }
-        });
-
-        // 4. CAMERA INITIALIZATION
-        async function main() {
+        // 2. Camera Initialization with Fallbacks
+        async function initializeCamera() {
             try {
-                const camera = new Camera(videoElement, {
+                // Try environment camera first
+                camera = new Camera(videoElement, {
                     onFrame: async () => {
                         try {
                             await hands.send({ image: videoElement });
                         } catch (error) {
-                            statusElement.textContent = "🔴 Tracking error - Move hand into view";
+                            statusElement.textContent = "🔴 Frame processing error";
                         }
                     },
-                    width: 1280,
-                    height: 720,
+                    width: 640,
+                    height: 480,
                     facingMode: 'environment'
                 });
 
                 await camera.start();
                 statusElement.textContent = "🟢 Camera ready! Show your hand";
+                
+                // Add resize handler for proper coordinate mapping
+                window.addEventListener('resize', updateCoordinateSystem);
+                updateCoordinateSystem();
 
-                // iOS mirror fix
-                if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-                    videoElement.style.transform = 'scale(-1, 1)';
+            } catch (environmentError) {
+                console.log('Environment camera failed, trying user-facing');
+                try {
+                    // Fallback to user-facing camera
+                    camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            await hands.send({ image: videoElement });
+                        },
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user'
+                    });
+                    await camera.start();
+                    statusElement.textContent = "🟢 Camera ready! Show your hand";
+                } catch (userError) {
+                    statusElement.textContent = "🔴 Camera access denied";
+                    console.error('Camera initialization failed:', userError);
                 }
-
-            } catch (error) {
-                statusElement.textContent = `🔴 Error: ${error.message}`;
-                console.error('Camera initialization error:', error);
             }
         }
 
-        // 5. START APPLICATION
-        main();
+        // 3. Coordinate System Management
+        let videoRect = null;
+        function updateCoordinateSystem() {
+            videoRect = videoElement.getBoundingClientRect();
+        }
 
-        // 6. CLEANUP ON UNLOAD
-        window.addEventListener('beforeunload', () => {
+        function toScreenCoordinates(x, y) {
+            return {
+                x: x * videoRect.width + videoRect.left,
+                y: y * videoRect.height + videoRect.top
+            };
+        }
+
+        // 4. Optimized Hand Tracking Processing
+        hands.onResults((results) => {
+            if (!results.multiHandLandmarks) {
+                trackBox.style.display = 'none';
+                return;
+            }
+
+            const landmarks = results.multiHandLandmarks[0];
+            const indexTip = landmarks[8];
+            const middleTip = landmarks[12];
+
+            const indexPos = toScreenCoordinates(indexTip.x, indexTip.y);
+            const middlePos = toScreenCoordinates(middleTip.x, middleTip.y);
+
+            const boxWidth = Math.abs(indexPos.x - middlePos.x) + 40;
+            const boxHeight = Math.abs(indexPos.y - middlePos.y) + 40;
+            const centerX = (indexPos.x + middlePos.x) / 2;
+            const centerY = (indexPos.y + middlePos.y) / 2;
+
+            trackBox.style.display = 'block';
+            trackBox.style.left = `${centerX}px`;
+            trackBox.style.top = `${centerY}px`;
+            trackBox.style.width = `${boxWidth}px`;
+            trackBox.style.height = `${boxHeight}px`;
+        });
+
+        // 5. Camera Cleanup and Error Handling
+        function stopCamera() {
+            if (camera) {
+                camera.stop();
+                camera = null;
+            }
             if (videoElement.srcObject) {
                 videoElement.srcObject.getTracks().forEach(track => track.stop());
             }
-        });
+        }
+
+        // Initialize when ready
+        (async function() {
+            try {
+                await hands.initialize();
+                await initializeCamera();
+            } catch (error) {
+                statusElement.textContent = `🔴 Initialization failed: ${error.message}`;
+                console.error('Initialization error:', error);
+            }
+        })();
+
+        // Cleanup on exit
+        window.addEventListener('beforeunload', stopCamera);
+        window.addEventListener('pagehide', stopCamera);
     </script>
 </body>
 </html>
