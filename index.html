@@ -1,189 +1,326 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Fingertip Tracker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vintage AR Business Card</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        /* Mobile-first styles */
         * {
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            box-sizing: border-box;
         }
         
-        #videoContainer {
+        body, html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: 'Playfair Display', 'Times New Roman', serif;
+            background: #f5f1e6;
+        }
+        
+        /* Camera View */
+        #camera-feed {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
-        }
-        
-        video {
-            position: absolute;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: rotateY(180deg);
+            z-index: 1;
+            filter: sepia(30%) contrast(110%);
         }
         
-        .tip-box {
-            position: absolute;
-            border: 3px solid #00ff00;
-            background: rgba(0, 255, 0, 0.2);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: none;
-            pointer-events: none;
-            box-shadow: 0 0 15px #00ff00;
-            transform: translate(-50%, -50%);
-            transition: all 0.1s;
-        }
-        
-        #status {
+        /* Vintage Overlay */
+        .overlay {
             position: fixed;
-            top: 10px;
-            left: 10px;
-            color: #00ff00;
-            background: rgba(0,0,0,0.7);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 50%, rgba(139, 69, 19, 0.2) 100%);
+            z-index: 2;
+            pointer-events: none;
+        }
+        
+        .paper-texture {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/old-paper.png');
+            background-color: #f5e9d0;
+            background-blend-mode: multiply;
+            opacity: 0.8;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* Card Container Mobile Optimization */
+        .card-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 320px;
+            height: 200px;
+            perspective: 1000px;
+            z-index: 10;
+        }
+
+        /* Toyish Figure */
+        .toy-figure {
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%) rotate(15deg);
+            width: 120px;
+            height: auto;
+            z-index: 15;
+            filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.3));
+            transition: transform 0.3s ease;
+        }
+
+        .toy-figure:hover {
+            transform: translateY(-50%) rotate(5deg) scale(1.05);
+        }
+
+        /* Card Styling */
+        .card {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+            border-radius: 10px;
+            background: #f9f5e9;
+            overflow: visible;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 5px solid #8b4513;
+            background: #f9f5e9;
+            padding: 15px;
+        }
+
+        /* Mobile Profile Section */
+        .profile-section {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            background: rgba(249, 245, 233, 0.9);
+            padding: 10px;
+            border: 2px solid #8b4513;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* Social Links Mobile Positioning */
+        .social-links {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 5;
+            width: 90%;
+            max-width: 400px;
+            justify-content: center;
+        }
+
+        .social-link {
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        /* Date Time Mobile */
+        .datetime {
+            top: 20px;
+            right: 20px;
+            font-size: 0.8rem;
             padding: 8px;
-            font-family: Arial, sans-serif;
-            z-index: 1000;
+        }
+
+        /* Card Content Mobile */
+        .card-title {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+        }
+
+        .card-subtitle {
+            font-size: 0.8rem;
+            margin-bottom: 12px;
+        }
+
+        .detail-item {
+            font-size: 0.75rem;
+            margin: 3px 0;
+        }
+
+        @media (min-width: 768px) {
+            /* Tablet/Desktop adjustments */
+            .card-container {
+                width: 320px;
+                height: 180px;
+            }
+            
+            .toy-figure {
+                right: -50px;
+                width: 150px;
+            }
         }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div id="videoContainer">
-        <video id="videoElement" autoplay playsinline></video>
-        <div id="tipBoxes"></div>
+    <!-- Loading Screen -->
+    <div class="loading-screen">
+        <div class="loader"></div>
     </div>
-    <div id="status">Initializing...</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <!-- Camera Feed -->
+    <video id="camera-feed" autoplay muted playsinline></video>
+    
+    <!-- Vintage Overlay -->
+    <div class="overlay"></div>
+    <div class="paper-texture"></div>
+    
+    <!-- Date and Time -->
+    <div class="datetime">
+        <div id="current-date">Sunday, April 06, 2025</div>
+        <div id="current-time">7:20 PM</div>
+    </div>
+    
+    <!-- Profile Section -->
+    <div class="profile-section">
+        <img src="WhatsApp Image 2025-03-17 at 18.40.11 (1).jpeg" alt="Profile" class="profile-image">
+        <div class="profile-info">
+            <div class="profile-name">Sanjeev Kumar</div>
+            <div class="profile-title">Verdhman Pipe Industry</div>
+        </div>
+    </div>
+    
+    <!-- Social Links -->
+    <div class="social-links">
+        <a href="#" class="social-link">
+            <i class="fas fa-map-marker-alt"></i>
+        </a>
+        <a href="#" class="social-link">
+            <i class="fas fa-phone"></i>
+        </a>
+        <a href="#" class="social-link">
+            <i class="fas fa-envelope"></i>
+        </a>
+    </div>
+    
+    <!-- Business Card with Toyish Figure -->
+    <div class="card-container">
+        <img src="your-toyish-figure-image.jpg" class="toy-figure" alt="Toyish Character">
+        <div class="card" id="business-card">
+            <div class="card-face card-front">
+                <h2 class="card-title">Verdhman Pipe Industry</h2>
+                <p class="card-subtitle">Est. 1985 • Quality Pipes & Fittings</p>
+                <div class="card-details">
+                    <div class="detail-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Sirsa, Haryana, India</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-face card-back">
+                <div class="card-details">
+                    <div class="detail-item">
+                        <i class="fas fa-user"></i>
+                        <span>Sanjeev Kumar, Proprietor</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+91 98XXXXXXXX</span>
+                    </div>
+                    <div class="detail-item">
+                        <i class="fas fa-envelope"></i>
+                        <span>contact@verdhmanpipe.com</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- JavaScript -->
     <script>
-        const videoElement = document.getElementById('videoElement');
-        const tipBoxes = document.getElementById('tipBoxes');
-        const statusElement = document.getElementById('status');
-
-        const tips = {
-            index: 8,
-            middle: 12,
-            ring: 16,
-            pinky: 20
-        };
-
-        let activeBoxes = new Set();
-
-        const hands = new Hands({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        // Mobile-friendly card flip
+        const card = document.getElementById('business-card');
+        let touchStart = 0;
+        
+        card.addEventListener('touchstart', function(e) {
+            touchStart = e.touches[0].clientX;
+        });
+        
+        card.addEventListener('touchend', function(e) {
+            const touchEnd = e.changedTouches[0].clientX;
+            if(Math.abs(touchEnd - touchStart) > 50) {
+                this.style.transform = this.style.transform === 'rotateY(180deg)' 
+                    ? 'rotateY(0deg)' 
+                    : 'rotateY(180deg)';
             }
         });
 
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
-        });
-
-        hands.onResults((results) => {
-            if (!results.multiHandLandmarks) return;
-
-            const landmarks = results.multiHandLandmarks[0];
-            if (!landmarks) return;
-
-            // Get visible fingertips (excluding thumb)
-            const extendedFingers = getExtendedFingers(landmarks);
-            updateTipBoxes(extendedFingers, landmarks);
-        });
-
-        function getExtendedFingers(landmarks) {
-            const extended = [];
-            const fingerJoints = {
-                index: [6, 7, 8],    // PIP, DIP, TIP
-                middle: [10, 11, 12],
-                ring: [14, 15, 16],
-                pinky: [18, 19, 20]
-            };
-
-            Object.entries(fingerJoints).forEach(([finger, joints]) => {
-                const pip = landmarks[joints[0]];
-                const dip = landmarks[joints[1]];
-                const tip = landmarks[joints[2]];
-
-                // Check if finger is extended (tip higher than previous joint)
-                if (tip.y < dip.y && tip.y < pip.y) {
-                    extended.push({
-                        type: finger,
-                        tip: tip
-                    });
-                }
-            });
-
-            return extended;
-        }
-
-        function updateTipBoxes(extendedFingers, landmarks) {
-            const videoWidth = videoElement.videoWidth;
-            const videoHeight = videoElement.videoHeight;
-            
-            // Create or update boxes
-            extendedFingers.forEach((finger, index) => {
-                let box = tipBoxes.children[index];
-                if (!box) {
-                    box = document.createElement('div');
-                    box.className = 'tip-box';
-                    box.style.borderColor = `hsl(${index * 90}, 100%, 50%)`;
-                    box.style.boxShadow = `0 0 15px hsl(${index * 90}, 100%, 50%)`;
-                    tipBoxes.appendChild(box);
-                }
-
-                const x = videoWidth - (finger.tip.x * videoWidth);
-                const y = finger.tip.y * videoHeight;
-
-                box.style.display = 'block';
-                box.style.left = `${x}px`;
-                box.style.top = `${y}px`;
-                activeBoxes.add(box);
-            });
-
-            // Hide unused boxes
-            Array.from(tipBoxes.children).forEach((box, index) => {
-                if (index >= extendedFingers.length) {
-                    box.style.display = 'none';
-                    activeBoxes.delete(box);
-                }
-            });
-
-            statusElement.textContent = `${extendedFingers.length} fingers detected`;
-        }
-
         // Camera setup
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({ image: videoElement });
-            },
-            facingMode: 'user',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-        });
+        async function setupCamera() {
+            const video = document.getElementById('camera-feed');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        aspectRatio: window.innerHeight/window.innerWidth
+                    } 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                document.body.style.background = '#f9f5e9';
+            }
+        }
 
-        camera.start()
-            .then(() => statusElement.textContent = 'Camera started')
-            .catch(e => {
-                statusElement.textContent = `Error: ${e.toString()}`;
-                console.error(e);
-            });
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            Array.from(tipBoxes.children).forEach(box => {
-                box.style.display = 'none';
-            });
+        // Initialize
+        window.addEventListener('load', () => {
+            setupCamera();
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('current-time').textContent = 
+                    now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            }, 1000);
+            
+            setTimeout(() => {
+                document.querySelector('.loading-screen').style.opacity = 0;
+                setTimeout(() => {
+                    document.querySelector('.loading-screen').remove();
+                }, 1000);
+            }, 2000);
         });
     </script>
 </body>
