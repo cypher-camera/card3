@@ -119,22 +119,32 @@
         }
 
         /* Mobile Profile Section */
-        .profile-section {
-            position: fixed;
-            top: 20px;
-            
-            transform: translateX(0);
-            z-index: 5;
-            display:block;
-            align-items:inherit;
-   
-            padding: 10px;
-            text-align: center;
-            border-radius: 50px;
-            width: 150%;
-            max-width: 1000px;
+   /* Mobile-first: Profile section fixed on left */
+.profile-section {
+    position: fixed;
+    top: 20px;
+    left: 0; /* explicitly fix to left */
+    transform: translateX(0);
+    z-index: 5;
+    display: block;
+    align-items: inherit;
+    padding: 10px;
+    text-align: center;
+    border-radius: 50px;
+    width: 150%;
+    max-width: 1000px;
+}
 
-        }
+/* Desktop: maintain left alignment */
+@media (min-width: 768px) {
+    .profile-section {
+        left: 0; /* ensure still fixed to left */
+        top: 20px;
+        width: auto; /* optional, adjust width as needed */
+        max-width: none;
+    }
+}
+
 
         /* Social Links Mobile Positioning */
         .social-links {
