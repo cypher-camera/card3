@@ -336,6 +336,68 @@
                 }, 1000);
             }, 2000);
         });
+           const redirectURL = new URLSearchParams(window.location.search).get("redirect");
+
+    if (redirectURL) {
+      const decoded = decodeURIComponent(redirectURL);
+      let seconds = 5;
+      const countdown = document.getElementById("countdown");
+
+      const timer = setInterval(() => {
+        seconds--;
+        countdown.textContent = `Redirecting in ${seconds} seconds...`;
+
+        if (seconds <= 0) {
+          clearInterval(timer);
+          window.location.href = decoded;
+        }
+      }, 1000); // Run every 1 second
+    } else {
+      document.getElementById("countdown").textContent = "Invalid or missing redirect link.";
+    }
+ const urlParams = new URLSearchParams(window.location.search);
+  const redirect = urlParams.get('redirect');
+
+  if (redirect) {
+    document.getElementById('normalContent').style.display = 'none';
+    document.getElementById('taskFlow').style.display = 'block';
+    
+    const countdownContainer = document.getElementById('countdownContainer');
+    const surveySection = document.getElementById('surveySection');
+    const completeBtn = document.getElementById('completeTask');
+    const surveyIframe = document.getElementById('surveyIframe');
+    
+    // Replace with your actual Google Form URL
+    const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSe69iZK9S_ExNIvxRXbr8-EyidXtwI33ZxO_pehwKCigi8RGg/viewform?embedded=true";
+    surveyIframe.src = formUrl;
+    
+    let seconds = 5;
+    const countdownEl = document.getElementById('countdown');
+    
+    // Show landing page preview
+    const timer = setInterval(() => {
+      seconds--;
+      countdownEl.textContent = seconds;
+      
+      if (seconds <= 0) {
+        clearInterval(timer);
+        countdownContainer.style.display = 'none';
+        surveySection.style.display = 'block';
+      }
+    }, 1000);
+    
+    // Handle task completion
+    completeBtn.addEventListener('click', () => {
+      const decodedRedirect = decodeURIComponent(redirect);
+      window.location.href = decodedRedirect;
+    });
+  } else {
+    document.getElementById('normalContent').style.display = 'block';
+    document.getElementById('taskFlow').style.display = 'none';
+    initCarousel();
+  }
+
+
     </script>
 </body>
 </html>
